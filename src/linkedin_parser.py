@@ -24,7 +24,7 @@ class LinkedInCrawlerApi:
     Production-ready adapter for LinkedIn company data extraction.
 
     Supports:
-    - Apify zhorex/linkedin-company-enrichment (recommended, no login needed)
+    - Apify johnvc/linkedin-company-api (no login needed)
     - Mock mode for testing without API credits
     - Easy to swap in Bright Data or other providers later
     """
@@ -32,7 +32,7 @@ class LinkedInCrawlerApi:
     def __init__(self, use_mock: bool = False):
         self.apify_token = os.getenv("APIFY_API_TOKEN")
         self.use_mock = use_mock or not self.apify_token
-        self.actor_id = "zhorex/linkedin-company-enrichment"
+        self.actor_id = "johnvc/linkedin-company-api"
 
     def is_configured(self) -> bool:
         return bool(self.apify_token) and not self.use_mock
@@ -86,8 +86,6 @@ class LinkedInCrawlerApi:
 
             run_input = {
                 "companyUrls": [linkedin_url],
-                "extractEmployees": False,
-                "enableAiEnrichment": False,
             }
 
             logger.info(f"Calling Apify actor {self.actor_id} for {linkedin_url}")
@@ -103,10 +101,15 @@ class LinkedInCrawlerApi:
                 )
 
             item = items[0]
-            company = item.get("company", {})
 
-            name = company.get("name")
-            website = company.get("website")
+            if item.get("error_message"):
+                return LinkedInApiResult(
+                    status="failed",
+                    reason=f"Apify error: {item['error_message']}",
+                )
+
+            name = item.get("name")
+            website = item.get("website")
 
             if not name or not website:
                 return LinkedInApiResult(
